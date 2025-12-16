@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prestação de Contas - Contourline</title>
+    
+    <!-- Estilo Visual (Tailwind CSS) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Banco de Dados (Supabase) - Link oficial e estável -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Motor do App (React) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Tradutor de Código (Babel) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body { -webkit-tap-highlight-color: transparent; font-family: sans-serif; }
+        input, select { font-size: 16px; } 
+        .loader {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid currentColor;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        
+        // =================================================================================
+        // ÁREA DE CONFIGURAÇÃO
+        // =================================================================================
+       	const SUPABASE_URL = 'INSIRA_SUA_URL_DO_SUPABASE_AQUI'; 
+	const SUPABASE_KEY = 'INSIRA_SUA_KEY_DO_SUPABASE_AQUI';
+              
+        // Nome exato do arquivo da logo que você vai colocar na mesma pasta
+        const LOGO_FILENAME = 'Logotipo-Contourline Branca.png';
+
+        // =================================================================================
+
+        let supabaseClient = null;
+        
+        // --- ÍCONES ---
+        const Icon = ({ d, className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {d}
+            </svg>
+        );
+        
+        const Icons = {
+            Wallet: (p) => <Icon {...p} d={<><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></>} />,
+            Briefcase: (p) => <Icon {...p} d={<><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></>} />,
+            User: (p) => <Icon {...p} d={<><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>} />,
+            Calendar: (p) => <Icon {...p} d={<><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></>} />,
+            MapPin: (p) => <Icon {...p} d={<><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></>} />,
+            PlusCircle: (p) => <Icon {...p} d={<><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></>} />,
+            Save: (p) => <Icon {...p} d={<><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></>} />,
+            Trash2: (p) => <Icon {...p} d={<><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></>} />,
+            FileDown: (p) => <Icon {...p} d={<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></>} />,
+            Paperclip: (p) => <Icon {...p} d={<><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></>} />,
+            CloudOff: (p) => <Icon {...p} d={<><line x1="1" x2="23" y1="1" y2="23"/><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 7h1.8a5 5 0 0 0 3.7 7.8"/><path d="M5 19.83a5 5 0 0 0 2.35.17"/></>} />,
+            RefreshCw: (p) => <Icon {...p} d={<><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></>} />,
+            LogOut: (p) => <Icon {...p} d={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></>} />,
+            Lock: (p) => <Icon {...p} d={<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>} />
+        };
+
+        const CATEGORIAS = [
+            "Diárias do hotel", "Refeições e lanches", "Passagens Aéreas", "Táxi/ Uber - durante a viagem",
+            "Translado", "KM Rodado (carro próprio)", "Extras em hotel", "Combustível (Carro da empresa)",
+            "Ônibus", "Estacionamento", "Pedágio", "Excesso de bagagem", "Outros"
+        ];
+
+        // --- TELA DE LOGIN ---
+        const AuthScreen = ({ onLogin }) => {
+            const [email, setEmail] = React.useState('');
+            const [password, setPassword] = React.useState('');
+            const [loading, setLoading] = React.useState(false);
+            const [mode, setMode] = React.useState('login');
+            const [error, setError] = React.useState(null);
+
+            const handleAuth = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError(null);
+
+                try {
+                    if(!supabaseClient) throw new Error("Erro de conexão: Banco de dados indisponível.");
+
+                    if (mode === 'signup') {
+                        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+                        if (error) throw error;
+                        alert("Cadastro realizado! Você já pode fazer login.");
+                        setMode('login');
+                    } else {
+                        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                        if (error) throw error;
+                        if (data.user) onLogin(data.user);
+                    }
+                } catch (err) {
+                    console.error("Erro Auth:", err);
+                    setError(err.message || "Erro ao autenticar. Verifique email e senha.");
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+                    <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+                        <div className="text-center mb-8">
+                            {/* LOGO: Carrega direto do arquivo na pasta */}
+                            <div className="flex justify-center mb-4">
+                                <div className="bg-blue-900 p-4 rounded-xl w-full flex justify-center shadow-inner">
+                                    <img 
+                                        src={LOGO_FILENAME} 
+                                        alt="Logo Contourline" 
+                                        className="h-16 object-contain"
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.nextSibling.style.display = 'flex';
+                                        }}
+                                    />
+                                    {/* Fallback se a imagem não for encontrada */}
+                                    <div className="hidden items-center justify-center w-full h-16 text-white font-bold text-xl">
+                                        CONTOURLINE
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h2 className="text-2xl font-bold text-gray-800">
+                                {mode === 'login' ? 'Acessar Conta' : 'Criar Nova Conta'}
+                            </h2>
+                            <p className="text-gray-500 mt-2">Prestador de Contas</p>
+                        </div>
+
+                        {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4 border border-red-200">{error}</div>}
+
+                        <form onSubmit={handleAuth} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                <input type="email" required className="w-full border border-gray-300 px-4 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                                <input type="password" required className="w-full border border-gray-300 px-4 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="********" value={password} onChange={e => setPassword(e.target.value)} />
+                            </div>
+                            <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition disabled:opacity-50 flex justify-center">
+                                {loading ? <div className="loader text-white border-white"></div> : (mode === 'login' ? 'Entrar' : 'Cadastrar')}
+                            </button>
+                        </form>
+
+                        <div className="mt-6 text-center text-sm text-gray-600">
+                            {mode === 'login' ? (
+                                <p>Ainda não tem conta? <button onClick={() => setMode('signup')} className="text-blue-600 font-bold hover:underline">Cadastre-se</button></p>
+                            ) : (
+                                <p>Já tem conta? <button onClick={() => setMode('login')} className="text-blue-600 font-bold hover:underline">Fazer Login</button></p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- APP PRINCIPAL ---
+        const App = () => {
+            const [user, setUser] = React.useState(null);
+            const [tripDetails, setTripDetails] = React.useState({ solicitante: '', empresa: 'CONTOURLINE EQUIPAMENTOS', motivo: '', periodo: '', adiantamento: 0 });
+            const [expenses, setExpenses] = React.useState([]);
+            const [newExpense, setNewExpense] = React.useState({ data: new Date().toISOString().split('T')[0], categoria: CATEGORIAS[1], descricao: '', valor: '', nomeArquivo: '', file: null });
+            const [isUploading, setIsUploading] = React.useState(false);
+            const [appReady, setAppReady] = React.useState(false);
+            const fileInputRef = React.useRef(null);
+
+            React.useEffect(() => {
+                const initSupabase = async () => {
+                    if (typeof window.supabase === 'undefined') {
+                        setTimeout(initSupabase, 100);
+                        return;
+                    }
+                    try {
+                        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                        const { data: { session } } = await supabaseClient.auth.getSession();
+                        setUser(session?.user ?? null);
+                        supabaseClient.auth.onAuthStateChange((_event, session) => {
+                            setUser(session?.user ?? null);
+                        });
+                        setAppReady(true);
+                    } catch (e) {
+                        console.error("Erro inicializar Supabase:", e);
+                        alert("Erro ao conectar com o sistema.");
+                    }
+                };
+                initSupabase();
+            }, []);
+
+            React.useEffect(() => {
+                if (!user || !supabaseClient) return;
+                const fetchExpenses = async () => {
+                    const { data, error } = await supabaseClient
+                        .from('despesas')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .order('created_at', { ascending: true });
+                    if (data) {
+                        const formatted = data.map(d => ({
+                            id: d.id,
+                            data: d.data_despesa,
+                            categoria: d.categoria,
+                            descricao: d.descricao,
+                            valor: d.valor,
+                            nomeArquivo: d.url_comprovante ? 'Anexo Cloud' : '',
+                            url: d.url_comprovante
+                        }));
+                        setExpenses(formatted);
+                    }
+                };
+                fetchExpenses();
+            }, [user]);
+
+            React.useEffect(() => {
+                if (user) {
+                    try {
+                        const savedTrip = localStorage.getItem('tripDetails');
+                        if (savedTrip) setTripDetails(JSON.parse(savedTrip));
+                    } catch (e) {}
+                }
+            }, [user]);
+
+            React.useEffect(() => {
+                if (user) {
+                    localStorage.setItem('tripDetails', JSON.stringify(tripDetails));
+                }
+            }, [tripDetails, user]);
+
+            const handleLogout = async () => {
+                await supabaseClient.auth.signOut();
+                setExpenses([]); 
+            };
+
+            const handleFileSelect = (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    setNewExpense({...newExpense, nomeArquivo: e.target.files[0].name, file: e.target.files[0]});
+                }
+            };
+
+            const handleAddExpense = async (e) => {
+                e.preventDefault();
+                if (!newExpense.valor || !newExpense.descricao) return;
+                setIsUploading(true);
+                let publicUrl = null;
+
+                try {
+                    if (newExpense.file && supabaseClient) {
+                        const fileName = `${user.id}/${Date.now()}_${newExpense.file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+                        const { error: uploadError } = await supabaseClient.storage.from('comprovantes').upload(fileName, newExpense.file);
+                        if (uploadError) throw uploadError;
+                        const { data } = supabaseClient.storage.from('comprovantes').getPublicUrl(fileName);
+                        publicUrl = data.publicUrl;
+                    }
+
+                    const expenseData = {
+                        user_id: user.id,
+                        data_despesa: newExpense.data,
+                        categoria: newExpense.categoria,
+                        descricao: newExpense.descricao,
+                        valor: parseFloat(newExpense.valor),
+                        solicitante: tripDetails.solicitante,
+                        url_comprovante: publicUrl
+                    };
+
+                    const { data, error } = await supabaseClient.from('despesas').insert([expenseData]).select();
+                    if (error) throw error;
+
+                    if (data) {
+                        setExpenses(prev => [...prev, {
+                            id: data[0].id,
+                            data: expenseData.data_despesa,
+                            categoria: expenseData.categoria,
+                            descricao: expenseData.descricao,
+                            valor: expenseData.valor,
+                            nomeArquivo: publicUrl ? 'Anexo Cloud' : '',
+                            url: publicUrl
+                        }]);
+                    }
+                    setNewExpense({ ...newExpense, descricao: '', valor: '', nomeArquivo: '', file: null });
+                    if(fileInputRef.current) fileInputRef.current.value = "";
+                } catch (err) {
+                    console.error(err);
+                    alert("Erro ao salvar: " + (err.message || "Erro desconhecido"));
+                } finally {
+                    setIsUploading(false);
+                }
+            };
+
+            const removeExpense = async (id) => {
+                if(!confirm("Apagar?")) return;
+                const { error } = await supabaseClient.from('despesas').delete().eq('id', id);
+                if (!error) setExpenses(prev => prev.filter(e => e.id !== id));
+                else alert("Erro ao apagar: " + error.message);
+            };
+
+            const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+            const total = expenses.reduce((acc, cur) => acc + cur.valor, 0);
+            const saldo = tripDetails.adiantamento - total;
+
+            const exportToCSV = () => {
+                let csv = "data:text/csv;charset=utf-8,\uFEFF";
+                csv += "RELATORIO DE PRESTACAO DE CONTAS\n";
+                csv += `Solicitante;,${tripDetails.solicitante}\n`;
+                csv += `Email;,${user.email}\n`;
+                csv += `Empresa;,${tripDetails.empresa}\n`;
+                csv += `Período;,${tripDetails.periodo}\n`;
+                csv += `Motivo;,${tripDetails.motivo}\n`;
+                const fmt = (n) => n ? n.toFixed(2).replace('.', ',') : '0,00';
+                csv += `Adiantamento Recebido;,${fmt(tripDetails.adiantamento)}\n\n`;
+                csv += "Data;Categoria;Descricao;Valor;Link Comprovante\n";
+                expenses.forEach(item => {
+                    const desc = item.descricao.replace(/;/g, " - ");
+                    csv += `${item.data};${item.categoria};${desc};${fmt(item.valor)};${item.url || 'Sem anexo'}\n`;
+                });
+                csv += `\nTOTAL DESPESAS;,${fmt(total)}\n`;
+                csv += `SALDO FINAL;,${fmt(saldo)}\n`;
+                const link = document.createElement("a");
+                link.setAttribute("href", encodeURI(csv));
+                link.setAttribute("download", `relatorio_${tripDetails.solicitante || user.email}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            if (!appReady) {
+                return (
+                    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4">
+                        <div className="loader border-blue-500 w-10 h-10"></div>
+                        <p className="text-gray-500 text-sm">Carregando sistema...</p>
+                    </div>
+                );
+            }
+
+            if (!user) {
+                return <AuthScreen onLogin={setUser} />;
+            }
+
+            return (
+                <div className="min-h-screen p-4 md:p-8 font-sans text-gray-800 pb-32">
+                    <div className="max-w-4xl mx-auto space-y-6">
+                        
+                        <header className="bg-blue-900 text-white p-6 rounded-xl shadow-lg flex flex-col md:flex-row justify-between items-center">
+                            <div className="flex items-center gap-4">
+                                {/* LOGO NO HEADER (Agora usando o arquivo na mesma pasta) */}
+                                <img 
+                                    src={LOGO_FILENAME} 
+                                    alt="Contourline" 
+                                    className="h-12 object-contain"
+                                    onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'block';
+                                    }} 
+                                />
+                                {/* Fallback */}
+                                <div className="hidden text-white font-bold text-xl">
+                                    CONTOURLINE
+                                </div>
+                                
+                                <div>
+                                    <h1 className="text-xl font-bold flex items-center gap-2">
+                                        Prestação de Contas
+                                    </h1>
+                                    <p className="text-blue-200 text-sm">{user.email}</p>
+                                </div>
+                            </div>
+                            
+                            <div className="mt-4 md:mt-0 flex flex-col items-end gap-2">
+                                <button onClick={handleLogout} className="text-blue-300 hover:text-white text-sm flex items-center gap-1 bg-blue-800 px-3 py-1 rounded transition">
+                                    <Icons.LogOut className="h-4 w-4" /> Sair
+                                </button>
+                                <div className="bg-blue-800 p-3 rounded-lg border border-blue-700 min-w-[150px] text-right">
+                                    <div className="text-blue-300 text-xs uppercase tracking-wider mb-1">Saldo Atual</div>
+                                    <div className={`text-2xl font-bold ${saldo >= 0 ? 'text-green-400' : 'text-red-300'}`}>{formatCurrency(saldo)}</div>
+                                </div>
+                            </div>
+                        </header>
+
+                        {/* DADOS DA VIAGEM */}
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-700 border-b pb-2"><Icons.Briefcase className="h-5 w-5 text-blue-600" /> Dados da Viagem</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Solicitante</label><div className="flex items-center bg-gray-50 rounded border border-gray-200 px-3 py-2"><Icons.User className="h-4 w-4 text-gray-400 mr-2" /><input className="bg-transparent w-full outline-none text-sm text-gray-700" placeholder="Nome Completo" value={tripDetails.solicitante} onChange={e => setTripDetails({...tripDetails, solicitante: e.target.value})} /></div></div>
+                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Período</label><div className="flex items-center bg-gray-50 rounded border border-gray-200 px-3 py-2"><Icons.Calendar className="h-4 w-4 text-gray-400 mr-2" /><input className="bg-transparent w-full outline-none text-sm text-gray-700" placeholder="Ex: 01/11 a 05/11" value={tripDetails.periodo} onChange={e => setTripDetails({...tripDetails, periodo: e.target.value})} /></div></div>
+                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Motivo / Evento</label><div className="flex items-center bg-gray-50 rounded border border-gray-200 px-3 py-2"><Icons.MapPin className="h-4 w-4 text-gray-400 mr-2" /><input className="bg-transparent w-full outline-none text-sm text-gray-700" placeholder="Ex: Visita Técnica" value={tripDetails.motivo} onChange={e => setTripDetails({...tripDetails, motivo: e.target.value})} /></div></div>
+                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Adiantamento (R$)</label><div className="flex items-center bg-green-50 rounded border border-green-200 px-3 py-2"><span className="text-green-600 font-bold mr-2">R$</span><input type="number" className="bg-transparent w-full outline-none text-sm text-green-700 font-bold" placeholder="0,00" value={tripDetails.adiantamento || ''} onChange={e => setTripDetails({...tripDetails, adiantamento: parseFloat(e.target.value) || 0})} /></div></div>
+                            </div>
+                        </div>
+
+                        {/* NOVO LANÇAMENTO */}
+                        <div className="bg-white rounded-xl shadow-md border border-blue-100 overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                            <div className="bg-blue-50 px-6 py-3 border-b border-blue-100 flex items-center gap-2 font-bold text-blue-800"><Icons.PlusCircle className="h-5 w-5" /> Novo Gasto</div>
+                            <form onSubmit={handleAddExpense} className="p-6 grid grid-cols-1 md:grid-cols-12 gap-4">
+                                <div className="md:col-span-3"><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Data</label><input type="date" className="w-full border rounded p-2 text-sm bg-gray-50 focus:bg-white focus:border-blue-500 transition outline-none" value={newExpense.data} onChange={e => setNewExpense({...newExpense, data: e.target.value})} required /></div>
+                                <div className="md:col-span-4"><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Categoria</label><select className="w-full border rounded p-2 text-sm bg-white focus:border-blue-500 transition outline-none" value={newExpense.categoria} onChange={e => setNewExpense({...newExpense, categoria: e.target.value})}>{CATEGORIAS.map(c => <option key={c}>{c}</option>)}</select></div>
+                                <div className="md:col-span-5"><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Valor (R$)</label><input type="number" step="0.01" placeholder="0,00" className="w-full border rounded p-2 text-sm bg-gray-50 focus:bg-white focus:border-blue-500 transition outline-none font-semibold" value={newExpense.valor} onChange={e => setNewExpense({...newExpense, valor: e.target.value})} required /></div>
+                                <div className="md:col-span-12"><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Descrição</label><input type="text" placeholder="Detalhes do gasto..." className="w-full border rounded p-2 text-sm bg-gray-50 focus:bg-white focus:border-blue-500 transition outline-none" value={newExpense.descricao} onChange={e => setNewExpense({...newExpense, descricao: e.target.value})} required /></div>
+                                <div className="md:col-span-12 flex justify-between items-center pt-2 mt-2 border-t border-gray-100">
+                                    <div className="flex items-center gap-2">
+                                        <button type="button" onClick={() => fileInputRef.current.click()} className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg border border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition text-gray-600 font-medium group"><Icons.Paperclip className="h-4 w-4 group-hover:text-blue-500 transition" />{newExpense.nomeArquivo ? <span className="text-blue-600 font-bold max-w-[120px] truncate">{newExpense.nomeArquivo}</span> : "Anexar Foto"}</button>
+                                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*,.pdf" onChange={handleFileSelect} />
+                                    </div>
+                                    <button type="submit" disabled={isUploading} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2 rounded-lg font-bold text-sm flex items-center gap-2 disabled:opacity-50 transition shadow-md hover:shadow-lg transform active:scale-95">{isUploading ? <div className="loader"></div> : <Icons.Save className="h-4 w-4" />}{isUploading ? 'Enviando...' : 'Salvar Gasto'}</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        {/* HISTÓRICO */}
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 font-bold text-gray-700 flex justify-between items-center"><span>Histórico de Lançamentos</span><span className="bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full font-bold">{expenses.length} itens</span></div>
+                            {expenses.length === 0 ? (
+                                <div className="p-12 text-center text-gray-400 text-sm flex flex-col items-center gap-2"><Icons.FileDown className="h-8 w-8 opacity-20" />Nenhum lançamento ainda. Comece adicionando acima.</div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left"><thead className="bg-gray-50 text-gray-500 border-b font-medium"><tr><th className="px-4 py-3">Data</th><th className="px-4 py-3">Descrição</th><th className="px-4 py-3 text-right">Valor</th><th className="px-4 py-3 text-center">Ações</th></tr></thead><tbody className="divide-y divide-gray-100">{expenses.map(exp => (<tr key={exp.id} className="hover:bg-blue-50 group transition-colors"><td className="px-4 py-3 w-28 text-gray-500 whitespace-nowrap">{exp.data.split('-').reverse().slice(0,2).join('/')}</td><td className="px-4 py-3"><div className="font-bold text-gray-800">{exp.descricao}</div><div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-2 items-center"><span className="bg-gray-100 border border-gray-200 text-gray-600 px-2 py-0.5 rounded">{exp.categoria}</span>{exp.url && (<a href={exp.url} target="_blank" className="text-blue-600 hover:text-blue-800 underline flex items-center gap-1 font-medium"><Icons.Paperclip className="h-3 w-3"/> Ver Anexo</a>)}</div></td><td className="px-4 py-3 text-right font-bold text-gray-700">{formatCurrency(exp.valor)}</td><td className="px-4 py-3 text-center w-16"><button onClick={() => removeExpense(exp.id)} className="text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition" title="Excluir"><Icons.Trash2 className="h-4 w-4"/></button></td></tr>))}</tbody></table>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* RODAPÉ */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                            <button onClick={exportToCSV} disabled={expenses.length === 0} className="bg-gray-800 hover:bg-black text-white py-4 rounded-xl font-bold flex justify-center items-center gap-2 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition transform active:scale-[0.98]"><Icons.FileDown className="h-5 w-5" />Baixar Relatório CSV (Excel)</button>
+                            <button onClick={() => {setExpenses([]); setTripDetails({...tripDetails, solicitante: '', motivo: '', periodo: '', adiantamento: 0});}} className="bg-white border-2 border-gray-200 text-gray-500 py-4 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition transform active:scale-[0.98]"><Icons.RefreshCw className="h-5 w-5" />Limpar Tela (Nova Viagem)</button>
+                        </div>
+
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
